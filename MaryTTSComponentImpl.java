@@ -8,12 +8,8 @@
 package com.tts;
 
 import ade.ADEComponentImpl;
-import java.io.BufferedReader;
-import java.io.DataInputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.*;
+import org.apache.commons.io.IOUtils;
 import java.rmi.RemoteException;
 import java.util.Locale;
 import java.util.logging.Level;
@@ -21,6 +17,7 @@ import java.util.logging.Logger;
 import javax.sound.sampled.*;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.Transformer;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
@@ -51,6 +48,9 @@ public final class MaryTTSComponentImpl extends ADEComponentImpl implements Mary
     private Request request;
     private MaryData maryData;
     private BufferedReader br;
+    Document doc;
+    DocumentBuilder db;
+    Transformer tr;
 
     private static enum Emotion {STRESS, CONFUSION, ANGER, CUSTOM1, NONE;}
     private Emotion e = Emotion.NONE;
@@ -58,6 +58,7 @@ public final class MaryTTSComponentImpl extends ADEComponentImpl implements Mary
     // boolean markers set by args flags
     private static boolean saveToWav = false;
     private boolean useEmotion = false;
+    private String markup = "SSML";
 
     // if saving to a .wav file, save at this location
     private final String wavFilename = "/tmp/adeplay.wav";
@@ -102,6 +103,18 @@ public final class MaryTTSComponentImpl extends ADEComponentImpl implements Mary
         if (this.e != Emotion.NONE) {
             this.useEmotion = true;
             System.out.println("Using " + this.e.toString());
+        }
+
+        // initialize components necessary for building and transforming XML doc later
+        try {
+            DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+            db = dbf.newDocumentBuilder();
+            TransformerFactory transformerFactory = TransformerFactory.newInstance();
+            this.tr = transformerFactory.newTransformer();
+        }
+
+        catch (Exception ex){
+            Logger.getLogger(MaryTTSComponentImpl.class.getName()).log(Level.SEVERE, null, ex);
         }
 
         initialized = true;
@@ -153,7 +166,6 @@ public final class MaryTTSComponentImpl extends ADEComponentImpl implements Mary
         else {
             this.useEmotion = true;
             System.out.println("Applying " + this.e.toString());
-
         }
     }
 
@@ -172,6 +184,32 @@ public final class MaryTTSComponentImpl extends ADEComponentImpl implements Mary
     }
 
     /**
+     * @return the markup to be used (MARYXML or SSML)
+     */
+//    public String getMarkup(){
+//        return this.markup;
+//    }
+
+    /**
+     *  @param m  the markup to use (MARYXML or SSML)
+     */
+//    public void setMarkup(String m){
+//        this.markup = m;
+//    }
+
+    /**
+     *
+     * @return the available sentence-wide emotions
+     */
+//    public String getAvailableEmotions(){
+//        String emos = "";
+//        for (Emotion emo : Emotion.values()) {
+//            emos = emos + ", " + emo.toString();
+//        }
+//        return emos;
+//    }
+
+    /**
      * Speaks appropriate text
      *
      * @param text the text to be spoken
@@ -182,6 +220,7 @@ public final class MaryTTSComponentImpl extends ADEComponentImpl implements Mary
     @Override
     public boolean sayText(String text, boolean wait) throws RemoteException {
         speaking = true;
+        doc = db.newDocument();
 
         // GB: add punctuation if none-exists, default to '.'
         if (!(text.endsWith(".") || text.endsWith(",") || text.endsWith("?") || text.endsWith("!"))) {
@@ -189,14 +228,11 @@ public final class MaryTTSComponentImpl extends ADEComponentImpl implements Mary
         }
 
         try {
-            if (useEmotion) {
-                applyEmotion(text);
-            }
-            else {
-                inputType = MaryDataType.TEXT;
-                maryData = new MaryData(inputType, Locale.US);
-                maryData.setData(text);
-            }
+            // search for words in ALLCAPS and wrap them with emphasis tags
+            String emphUtt = addEmphasis(text);
+            // apply appropriate emotion (including NONE)
+            applyEmotion(emphUtt);
+
             request = new Request(inputType,
                                   outputType,
                                   locale,
@@ -206,15 +242,11 @@ public final class MaryTTSComponentImpl extends ADEComponentImpl implements Mary
                                   id,
                                   audioFileFormat);
 
-            if (useEmotion) {
-                request.readInputData(br);
-            } else {
-                request.setInputData(maryData);
-            }
-
+            request.readInputData(br);
             request.process();
             ais = request.getOutputData().getAudio();
 
+            // either save the audio to .wav or output it as audio
             if (saveToWav) {
                 File f = new File(wavFilename);
                 AudioSystem.write(ais, audioFileFormat.getType(), f);
@@ -235,29 +267,76 @@ public final class MaryTTSComponentImpl extends ADEComponentImpl implements Mary
             return false;
         }
     }
+
+
+    /**
+     * kind of a hack... When adding emphasis tags to utterance they aren't escaped by the XML transformer.
+     * this function fixes the opening and closing XML brackets.
+     *
+     * @param fname  file name to fix XML tags of
+     * @throws IOException
+     */
+    private void fixXML(String fname) throws IOException {
+        FileInputStream fis = new FileInputStream(fname);
+        String content = IOUtils.toString(fis);
+        content = content.replace("&lt;", "<");
+        content = content.replace("&gt;", ">");
+        fis.close();
+        FileOutputStream fos = new FileOutputStream(fname);
+        IOUtils.write(content, fos);
+        fos.close();
+    }
+
+    /**
+     * generate utterance with RAWMARYXML markup. populates doc with MARYXML header and paragraph tag
+     *
+     * @return the child element
+     * @throws ParserConfigurationException
+     */
+    private Element createRAWMARYXMLDoc() throws ParserConfigurationException {
+        inputType = MaryDataType.RAWMARYXML;
+
+        // create elements
+        Element maryEl = doc.createElement("maryxml");
+        maryEl.setAttribute("version", "0.4");
+        maryEl.setAttribute("xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance");
+        maryEl.setAttribute("xmlns", "http://mary.dfki.de/2002/MaryXML");
+        maryEl.setAttribute("xml:lang", "en-US");
+        doc.appendChild(maryEl);
+        Element pEl = doc.createElement("p");
+        maryEl.appendChild(pEl);
+        return pEl;
+    }
+    /**
+     * generate utterance with SSML markup. populates doc with SSML header and paragraph tag
+     *
+     * @return the child element
+     * @throws ParserConfigurationException
+     */
+    private Element createSSMLDoc() throws ParserConfigurationException {
+        inputType = MaryDataType.SSML;
+
+        // create elements
+        Element maryEl = doc.createElement("speak");
+        maryEl.setAttribute("version", "1.0");
+        maryEl.setAttribute("xmlns", "http://www.w3.org/2001/10/synthesis");
+        maryEl.setAttribute("xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance");
+        maryEl.setAttribute("xsi:schemaLocation","http://www.w3.org/2001/10/synthesis " +
+                                                 "http://www.w3.org/TR/speech-synthesis/synthesis.xsd");
+        maryEl.setAttribute("xml:lang", "en-US");
+        doc.appendChild(maryEl);
+        Element pEl = doc.createElement("p");
+        maryEl.appendChild(pEl);
+        return pEl;
+    }
+
     /**
      * applies Emotion e to input s by wrapping the utterance in Mary XML
      *
      * @param s the string we're applying emotion to
      */
     private void applyEmotion(String s) {
-        inputType = MaryDataType.RAWMARYXML;
         try {
-
-            // build maryxml document
-            DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
-            DocumentBuilder db = dbf.newDocumentBuilder();
-            Document doc = db.newDocument();
-
-            // create elements
-            Element maryEl = doc.createElement("maryxml");
-            maryEl.setAttribute("version", "0.4");
-            maryEl.setAttribute("xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance");
-            maryEl.setAttribute("xmlns", "http://mary.dfki.de/2002/MaryXML");
-            maryEl.setAttribute("xml:lang", "en-US");
-            doc.appendChild(maryEl);
-            Element pEl = doc.createElement("p");
-            maryEl.appendChild(pEl);
             Element prosodyEl = doc.createElement("prosody");
 
             // generate emotive markup
@@ -276,100 +355,62 @@ public final class MaryTTSComponentImpl extends ADEComponentImpl implements Mary
                     prosodyEl.setAttribute("volume","0.0");
                     break;
                 case CUSTOM1:
-
+                    break;
                 default:
+                    break;
             }
 
-            // add text with prosody markup to XML file 
+            // append the utterance with prosody markup to doc.
             String utterance = s;
             Node utt = doc.createTextNode(utterance);
+
+            System.out.println(utt);
+
             prosodyEl.appendChild(utt);
-            pEl.appendChild(prosodyEl);
+            if (this.markup.equalsIgnoreCase("SSML")) {
+                createSSMLDoc().appendChild(prosodyEl);
+            }
+            else {
+                createRAWMARYXMLDoc().appendChild(prosodyEl);
+            }
 
-            //appendTextWithEmphasis(doc, s, prosodyEl);
-            //pEl.appendChild(prosodyEl);
-
-            // XML transform
-            TransformerFactory transformerFactory = TransformerFactory.newInstance();
-            Transformer transformer = transformerFactory.newTransformer();
+            // transform the document to XML
             DOMSource source = new DOMSource(doc);
             StreamResult result = new StreamResult(new File("utterance.xml"));
-            transformer.transform(source, result);
-            System.out.println("Mary XML file generated!");
+            this.tr.transform(source, result);
+
+            fixXML("utterance.xml");
 
             // delegate datastream
             FileInputStream fstream = new FileInputStream("utterance.xml");
             DataInputStream in = new DataInputStream(fstream);
-            br= new BufferedReader(new InputStreamReader(in));
+            this.br= new BufferedReader(new InputStreamReader(in));
+
 
         } catch (Exception ex) {
             Logger.getLogger(MaryTTSComponentImpl.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
 
-
     /**
      * adds emphasis to uppercase words in String s
      *
-     * @param s
+     * @param utterance  the utterance text we are searching for ALLCAPS words and emphasizing
      * @return the updated String including emphasis
      */
-    private void appendTextWithEmphasis(Document doc, String s, Element e) {
-        Element prosEl = doc.createElement("prosody");
-        prosEl.setAttribute("volume", emphasis);
-        String[] words = getWords(s);
-        String w = "";
+    private String addEmphasis(String utterance) {
+        String[] words = utterance.split("\\s+");
+        String newUtterance = "";
         for (int i = 0; i < words.length; i++) {
             if (isAllUppercase(words[i])) {
-                e.appendChild(doc.createTextNode(w));
-                prosEl.appendChild(doc.createTextNode(words[i]));
-                e.appendChild(prosEl);
-                w = " ";
-            } else {
-                w = w + words[i] + " ";
+                words[i] = "<emphasis level=\"strong\">" + words[i] + "</emphasis>";
             }
+            newUtterance = newUtterance + " " + words[i];
         }
-        e.appendChild(doc.createTextNode(w));
+        return newUtterance;
     }
 
-    /**
-     * parses String s and returns the list of words contained in it
-     *
-     * @param s
-     * @return list of strings
-     */
-    private String[] getWords(String s) {
-        String[] words = new String[getNumWhitespaces(s) + 1];
-        String word = "";
-        int x = 0;
-        for (int i = 0; i < s.length(); i++) {
-            if (!Character.isWhitespace(s.charAt(i))) {
-                word = word.concat(Character.toString(s.charAt(i)));
-            } else {
-                words[x] = (word);
-                word = "";
-                x++;
-            }
-        }
-        words[x] = (word);
-        return words;
-    }
 
-    /**
-     * gets the number of white spaces in String s
-     *
-     * @param s
-     * @return int; the number of white spaces
-     */
-    private int getNumWhitespaces(String s) {
-        int spaces = 0;
-        for (int i = 0; i < s.length(); i++) {
-            if (Character.isWhitespace(s.charAt(i))) {
-                spaces++;
-            }
-        }
-        return spaces;
-    }
 
     /**
      * *
@@ -383,6 +424,7 @@ public final class MaryTTSComponentImpl extends ADEComponentImpl implements Mary
         for (int i = 0; i < s.length(); i++) {
             if (Character.isLowerCase(s.charAt(i))) {
                 allUpper = false;
+                break;
             }
         }
         return allUpper;
@@ -411,7 +453,6 @@ public final class MaryTTSComponentImpl extends ADEComponentImpl implements Mary
     @Override
     protected String additionalUsageInfo() {
         // GB: added flag to enable save-to-file behavior
-        // CC: added flags to enable prosody, emoting
         return "-wav\t\t save to wav play instead of sending directly to audioout\n"
             + "-stress\t\t apply stressed prosody to an utterance\n"
             + "-anger\t\t apply angry, frustrated prosody to an utterance\n"

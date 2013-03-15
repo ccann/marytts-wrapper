@@ -14,5 +14,9 @@ import com.interfaces.VoiceProsodyComponent;
 public interface MaryTTSComponent extends SpeechProductionComponent, VoiceProsodyComponent {
 
 	public String getGuiHelp() throws RemoteException;
+//    public String getMarkup();
+//    public void setMarkup(String s);
+//    public String getAvailableEmotions();
+
 
 }
