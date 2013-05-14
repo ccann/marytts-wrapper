@@ -1,0 +1,30 @@
+                                             TTS README
+                                             ==========
+
+Author: Cody Canning
+Date: 2013-02-15 13:04:49 EST
+
+
+1 TTS Component 
+================
+The ademary TTS component is an ADE wrapper of some of the core functionalities of MaryTTS. The only
+voice provided is the cmu-slt-hsmm-5.0; it is a female voice. These options can be passed to the server in the form
+of command line flags, including:
+-stress     make voice sound stressed/nervous/jittery
+-anger      make voice sound angry
+-confusion  make voice sound confused
+
+2 Demo Configuration
+================
+To run a quick standalone demo of this component, first build the necessary
+ADE components:
+
+$ ./ant tts utilities
+
+then run:
+
+$ ./ant run-registry -Df=config/marytts-demo.config
+
+This will start the MaryTTS component along with a
+GUI from which you can set prosody with "setEmotion" ("stress", "anger", 
+or "confusion") and enter strings to say via "sayText".
