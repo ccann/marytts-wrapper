@@ -22,6 +22,10 @@ import javax.xml.transform.Transformer;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
+<<<<<<< HEAD
+=======
+import marytts.datatypes.MaryData;
+>>>>>>> cb4f4a619cc94926cfd4f6c2c5f429b72153220d
 import marytts.datatypes.MaryDataType;
 import marytts.modules.synthesis.Voice;
 import marytts.server.Mary;
@@ -35,19 +39,32 @@ public final class MaryTTSComponentImpl extends ADEComponentImpl implements Mary
     boolean initialized = false;
     private MaryDataType inputType;//.TEXT or .RAWMARYXML
     private MaryDataType outputType = MaryDataType.AUDIO;
+<<<<<<< HEAD
     private static Voice voice;
+=======
+    private Voice voice = Voice.getVoice("cmu-slt-hsmm");
+>>>>>>> cb4f4a619cc94926cfd4f6c2c5f429b72153220d
     private String defaultEffects;
     private String defaultStyle;
     private Locale locale;
     private int id;
+<<<<<<< HEAD
+=======
+    private String emphasis = "silent";
+>>>>>>> cb4f4a619cc94926cfd4f6c2c5f429b72153220d
     private AudioFileFormat audioFileFormat;
     private AudioInputStream ais;
     private AudioPlayer ap;
     private Request request;
+<<<<<<< HEAD
+=======
+    private MaryData maryData;
+>>>>>>> cb4f4a619cc94926cfd4f6c2c5f429b72153220d
     private BufferedReader br;
     Document doc;
     DocumentBuilder db;
     Transformer tr;
+<<<<<<< HEAD
     //private static String voiceStr = "cmu-rms=hsmm"; // default to male voice
     private static String voiceStr = "cmu-slt-hsmm";    // default to female voice
 
@@ -56,6 +73,15 @@ public final class MaryTTSComponentImpl extends ADEComponentImpl implements Mary
 
     // boolean markers set by args flags
     private static boolean saveToWav = false;
+=======
+
+    private static enum Emotion {STRESS, CONFUSION, ANGER, CUSTOM1, NONE;}
+    private Emotion e = Emotion.NONE;
+
+    // boolean markers set by args flags
+    private static boolean saveToWav = false;
+    private boolean useEmotion = false;
+>>>>>>> cb4f4a619cc94926cfd4f6c2c5f429b72153220d
     private String markup = "SSML";
 
     // if saving to a .wav file, save at this location
@@ -80,10 +106,13 @@ public final class MaryTTSComponentImpl extends ADEComponentImpl implements Mary
         } catch (Exception ex) {
             Logger.getLogger(MaryTTSComponentImpl.class.getName()).log(Level.SEVERE, null, ex);
         }
+<<<<<<< HEAD
 
         setVoice(voiceStr);
         //this.sayText("Hi My name is andy");
 
+=======
+>>>>>>> cb4f4a619cc94926cfd4f6c2c5f429b72153220d
     }
 
     /**
@@ -91,7 +120,11 @@ public final class MaryTTSComponentImpl extends ADEComponentImpl implements Mary
      */
     private void init() {
         if (initialized) {
+<<<<<<< HEAD
             System.out.println("already initialized");
+=======
+            System.out.println(" already initialized");
+>>>>>>> cb4f4a619cc94926cfd4f6c2c5f429b72153220d
             return;
         }
         locale = new Locale("en-US");
@@ -102,6 +135,13 @@ public final class MaryTTSComponentImpl extends ADEComponentImpl implements Mary
         audioFileFormat = new AudioFileFormat(AudioFileFormat.Type.WAVE, Voice.AF16000, AudioSystem.NOT_SPECIFIED);
         //audioFileFormat = new AudioFileFormat(AudioFileFormat.Type.WAVE, Voice.AF22050, AudioSystem.NOT_SPECIFIED);
 
+<<<<<<< HEAD
+=======
+        if (this.e != Emotion.NONE) {
+            this.useEmotion = true;
+            System.out.println("Using " + this.e.toString());
+        }
+>>>>>>> cb4f4a619cc94926cfd4f6c2c5f429b72153220d
 
         // initialize components necessary for building and transforming XML doc later
         try {
@@ -138,7 +178,16 @@ public final class MaryTTSComponentImpl extends ADEComponentImpl implements Mary
     @Override
     public boolean stopUtterance() throws RemoteException {
         ap.interrupt();
+<<<<<<< HEAD
         return ap.isInterrupted();
+=======
+        if (ap.isInterrupted()) {
+            return true;
+        }
+        else {
+            return false;
+        }
+>>>>>>> cb4f4a619cc94926cfd4f6c2c5f429b72153220d
     }
 
     /**
@@ -153,8 +202,18 @@ public final class MaryTTSComponentImpl extends ADEComponentImpl implements Mary
                 this.e = emo;
             }
         }
+<<<<<<< HEAD
         System.out.println("Applying " + this.e.toString());
 
+=======
+        if (this.e == Emotion.NONE){
+            this.useEmotion = false;
+        }
+        else {
+            this.useEmotion = true;
+            System.out.println("Applying " + this.e.toString());
+        }
+>>>>>>> cb4f4a619cc94926cfd4f6c2c5f429b72153220d
     }
 
     /**
@@ -165,6 +224,7 @@ public final class MaryTTSComponentImpl extends ADEComponentImpl implements Mary
         return this.e.toString();
     }
 
+<<<<<<< HEAD
     /**
      * @return  the current voice used for TTS
      */
@@ -190,6 +250,8 @@ public final class MaryTTSComponentImpl extends ADEComponentImpl implements Mary
         voice = Voice.getVoice(vc);
     }
 
+=======
+>>>>>>> cb4f4a619cc94926cfd4f6c2c5f429b72153220d
     @Override
     public boolean sayText(String text) throws RemoteException {
         sayText(text, true);
@@ -232,7 +294,10 @@ public final class MaryTTSComponentImpl extends ADEComponentImpl implements Mary
      */
     @Override
     public boolean sayText(String text, boolean wait) throws RemoteException {
+<<<<<<< HEAD
 
+=======
+>>>>>>> cb4f4a619cc94926cfd4f6c2c5f429b72153220d
         speaking = true;
         doc = db.newDocument();
 
@@ -242,8 +307,11 @@ public final class MaryTTSComponentImpl extends ADEComponentImpl implements Mary
         }
 
         try {
+<<<<<<< HEAD
 
             text = demoHack(text);
+=======
+>>>>>>> cb4f4a619cc94926cfd4f6c2c5f429b72153220d
             // search for words in ALLCAPS and wrap them with emphasis tags
             String emphUtt = addEmphasis(text);
             // apply appropriate emotion (including NONE)
@@ -377,7 +445,12 @@ public final class MaryTTSComponentImpl extends ADEComponentImpl implements Mary
             }
 
             // append the utterance with prosody markup to doc.
+<<<<<<< HEAD
             Node utt = doc.createTextNode(s);
+=======
+            String utterance = s;
+            Node utt = doc.createTextNode(utterance);
+>>>>>>> cb4f4a619cc94926cfd4f6c2c5f429b72153220d
 
             System.out.println(utt);
 
@@ -425,6 +498,7 @@ public final class MaryTTSComponentImpl extends ADEComponentImpl implements Mary
         return newUtterance;
     }
 
+<<<<<<< HEAD
     private String demoHack(String s){
         if (s.equalsIgnoreCase("I dont know how to do that") || (s.equalsIgnoreCase("I don't know how to do that")) ||
            (s.equalsIgnoreCase("I dont know how to do that.")) || (s.equalsIgnoreCase("I don't know how to do that."))) {
@@ -432,12 +506,19 @@ public final class MaryTTSComponentImpl extends ADEComponentImpl implements Mary
         }
         else {return s;}
     }
+=======
+
+>>>>>>> cb4f4a619cc94926cfd4f6c2c5f429b72153220d
 
     /**
      * *
      * Returns true if string s is all uppercase, false otherwise
      *
+<<<<<<< HEAD
      * @param s  the string to check
+=======
+     * @param s
+>>>>>>> cb4f4a619cc94926cfd4f6c2c5f429b72153220d
      * @return true or false
      */
     private boolean isAllUppercase(String s) {
@@ -468,9 +549,13 @@ public final class MaryTTSComponentImpl extends ADEComponentImpl implements Mary
 		+ "stopUtterance: cancel utterance from being said\n"
 		+ "setEmotion: set either \"stress\", \"anger\", or \"confusion\""
 		+ " (without quotes).\n"
+<<<<<<< HEAD
 		+ "getEmotion: get currently set emotion\n"
         + "setVoice: specify voice to use by name. Or by gender (\"female\" or \"male\").\n"
         + "getVoice: get the current voice being used";
+=======
+		+ "getEmotion: get currently set emotion";
+>>>>>>> cb4f4a619cc94926cfd4f6c2c5f429b72153220d
     }
 
     @Override
@@ -479,9 +564,13 @@ public final class MaryTTSComponentImpl extends ADEComponentImpl implements Mary
         return "-wav\t\t save to wav play instead of sending directly to audioout\n"
             + "-stress\t\t apply stressed prosody to an utterance\n"
             + "-anger\t\t apply angry, frustrated prosody to an utterance\n"
+<<<<<<< HEAD
             + "-confusion\t\t apply confused, perplexed prosody to an utterance\n"
             + "-male\t\t use male voice\n"
             + "-female\t\t use female voice\n";
+=======
+            + "-confusion\t\t apply confused, perplexed prosody to an utterance\n";
+>>>>>>> cb4f4a619cc94926cfd4f6c2c5f429b72153220d
     }
 
     @Override
@@ -500,12 +589,15 @@ public final class MaryTTSComponentImpl extends ADEComponentImpl implements Mary
             } else if (args[i].equalsIgnoreCase("-confusion")) {
                 System.out.println("found CONFUSION");
                 this.e = Emotion.CONFUSION;
+<<<<<<< HEAD
             } else if(args[i].equalsIgnoreCase("-male")){
                 System.out.println("found MALE");
                 voiceStr = "male";
             } else if(args[i].equalsIgnoreCase("-female")){
                 System.out.println("found FEMALE");
                 voiceStr = "female";
+=======
+>>>>>>> cb4f4a619cc94926cfd4f6c2c5f429b72153220d
             }
         }
 
